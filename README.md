@@ -45,7 +45,7 @@ Nothing to clone. Node.js **20+** is the only prerequisite (native `fetch`,
 `FormData`, `node:test`).
 
 ```sh
-npx -y github:maximeallanic/CarrefourDriveMCP
+npx -y github:hugo-clemente/CarrefourDriveMCP
 ```
 
 That single command fetches, builds and starts the server on stdio — the first
@@ -56,7 +56,7 @@ never type it yourself: you put it in your MCP client config
 Prefer it installed once, globally?
 
 ```sh
-npm install -g github:maximeallanic/CarrefourDriveMCP
+npm install -g github:hugo-clemente/CarrefourDriveMCP
 carrefour-drive-mcp
 ```
 
@@ -68,7 +68,7 @@ Override with `CARREFOUR_DATA_DIR`.
 <summary>From source instead</summary>
 
 ```sh
-git clone https://github.com/maximeallanic/CarrefourDriveMCP.git
+git clone https://github.com/hugo-clemente/CarrefourDriveMCP.git
 cd CarrefourDriveMCP
 npm install     # builds, and downloads the Chromium transport
 node dist/index.js
@@ -83,7 +83,7 @@ A source checkout keeps its data in the repo's own `data/` directory.
 ### Claude Code
 
 ```sh
-claude mcp add carrefour-drive -- npx -y github:maximeallanic/CarrefourDriveMCP
+claude mcp add carrefour-drive -- npx -y github:hugo-clemente/CarrefourDriveMCP
 ```
 
 Then, in any session:
@@ -106,7 +106,7 @@ Edit `claude_desktop_config.json`:
   "mcpServers": {
     "carrefour-drive": {
       "command": "npx",
-      "args": ["-y", "github:maximeallanic/CarrefourDriveMCP"]
+      "args": ["-y", "github:hugo-clemente/CarrefourDriveMCP"]
     }
   }
 }
@@ -115,7 +115,7 @@ Edit `claude_desktop_config.json`:
 Restart Claude Desktop; the Carrefour tools appear in the tools menu.
 
 > On Windows, use `"command": "cmd"` with
-> `"args": ["/c", "npx", "-y", "github:maximeallanic/CarrefourDriveMCP"]`.
+> `"args": ["/c", "npx", "-y", "github:hugo-clemente/CarrefourDriveMCP"]`.
 
 ### Cursor, Windsurf, Zed, VS Code and other MCP clients
 
@@ -124,7 +124,7 @@ Any client that speaks MCP over stdio takes the same two fields:
 ```json
 {
   "command": "npx",
-  "args": ["-y", "github:maximeallanic/CarrefourDriveMCP"]
+  "args": ["-y", "github:hugo-clemente/CarrefourDriveMCP"]
 }
 ```
 
