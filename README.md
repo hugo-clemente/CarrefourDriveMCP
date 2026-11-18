@@ -5,13 +5,15 @@ Model Context Protocol client search the French grocery catalogue, build a cart,
 pick a Drive pickup or delivery slot, read loyalty points and past receipts — on
 your own Carrefour account.
 
-**48 tools.** 43 real `carrefour.fr` API endpoints described as JSON and run by a
-generic executor, plus 5 session-management tools. Adding an endpoint means
+**51 tools.** 40 real `carrefour.fr` API endpoints described as JSON and run by a
+generic executor, 6 cart and order tools that check what Carrefour really did,
+plus 5 session-management tools. Adding an endpoint means
 dropping in a JSON file — no code.
 
 ```
 "What did I buy last month?"            → get_loyalty_order_receipts
 "Refill my usual weekly groceries."     → get_frequent_purchases + add_item_to_cart
+"What was in my last Drive order?"      → get_orders + get_order_details
 "Cheapest organic pasta under 2 €?"     → search_products
 "Book the Saturday morning Drive slot." → get_delivery_timeslots + select_cart_delivery_slot
 ```
@@ -195,9 +197,11 @@ re-injected into the browser profile on every start.
 
 | Tool | Endpoint | Required params |
 | --- | --- | --- |
-| `get_cart` | GET /api/cart | — |
-| `add_item_to_cart` | PATCH /api/cart | `ean`, `counter`, `basketServiceId`, `subBasketType` |
-| `add_item_to_cart_by_ean` | PATCH /api/cart/items | `ean`, `basketServiceId`, `subBasketType` |
+| `get_cart` | GET /api/cart, summarised | — |
+| `add_item_to_cart` | PATCH /api/cart, then re-reads the cart | `ean` (`quantity`, default 1) |
+| `set_cart_item_quantity` | PATCH /api/cart or /api/cart/items | `ean`, `quantity` (0 removes) |
+| `remove_item_from_cart` | PATCH /api/cart/items | `ean` |
+| `remove_unavailable_items_from_cart` | PATCH /api/cart/items, per unavailable line | — |
 | `apply_promo_code_to_cart` | POST /api/cart/promo_code | `code`, `facilityServiceId`, `subBasketType` |
 | `simulate_cart_for_store` | GET /api/cart/simulate | `storeRef` |
 | `get_delivery_timeslots` | GET /api/timeslots | `facilityServiceId` |
@@ -206,6 +210,34 @@ re-injected into the browser profile on every start.
 | `validate_checkout_summary` | POST /api/checkout/{basket_service_type}/validate/summary | `basket_service_type`, `deviceFingerPrintId` |
 | `get_checkout_recommendations` | GET /api/checkout/recommendations/{facility_id}/{basket_service} | `facility_id`, `basket_service` |
 | `submit_checkout_payment` ⚠️ | POST /api/checkout/payment | `checkout_type`, `device_fingerprint_id`, `payments` |
+
+#### How the cart tools behave
+
+The cart tools are hand-written (`src/tools/cart.tools.ts`) because the raw
+endpoints are full of traps, all checked against the live site:
+
+- **`get_cart` returns every line.** A raw cart weighs ~6 KB per product, so the
+  JSON used to be cut after about five products. The summary keeps, for each
+  line, EAN, title, format, quantity, unit price, line total and availability in
+  the store, then totals, the unavailable lines and possible duplicates (same
+  EAN twice, or several products from the same shelf). `raw: true` gives the
+  original payload.
+- **Quantities are absolute.** `PATCH /api/cart` sets a line to `counter`
+  units. A `counter` of 0 does **not** remove it: Carrefour adds one unit.
+  Removal is `PATCH /api/cart/items`, which the old `add_item_to_cart_by_ean`
+  tool was calling under the wrong name.
+- **Every change is verified.** The tools re-read the cart and say what really
+  happened. A product unavailable in the store is reported at once, and the
+  "unavailable" line Carrefour leaves behind is removed (unless
+  `keepIfUnavailable`).
+- When Carrefour refuses to change the quantity of an existing line, the tools
+  remove it and add it back with the new quantity.
+- `search_products`, `get_frequent_purchases`, `get_products_by_gtins` and
+  `get_products_by_query` answer with a compact list (price, availability,
+  `basketServiceId`) unless called with `raw: true`.
+
+The raw request templates stay in `tools/` with `"internal": true`: they are
+not exposed as tools, and the hand-written tools build on them.
 
 > ⚠️ `submit_checkout_payment` **charges a real payment**. Four of its parameters
 > were captured as query string while their description suggests HTTP headers —
@@ -217,6 +249,7 @@ re-injected into the browser profile on every start.
 | --- | --- | --- |
 | `get_orders` | GET /api/user/orders | — |
 | `get_last_orders` | GET /api/user/orders/last | — |
+| `get_order_details` | GET /api/user/orders/{orderNumber} + /api/user/order/{orderNumber}/reorder | `orderNumber` |
 | `get_frequent_purchases` | GET /mon-compte/achats-frequents | — |
 | `get_loyalty_balance` | GET /api/user/secured/loyalty/balance | — |
 | `get_loyalty_cards` | GET /api/user/secured/loyalty/my-cards | — |
@@ -308,7 +341,7 @@ Every file in `tools/` is self-describing:
 
 ```jsonc
 {
-  "name": "add_item_to_cart",
+  "name": "cart_patch_items",
   "parameters": { "type": "object", "properties": { … }, "required": [ … ] },
   "request": {
     "method": "PATCH",

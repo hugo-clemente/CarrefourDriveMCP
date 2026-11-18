@@ -1,6 +1,6 @@
 {
-  "name": "add_item_to_cart",
-  "description": "Adds or updates a product item in the authenticated user's cart on Carrefour France. Allows specifying the product EAN, desired quantity, the basket service (store/drive), and the sub-basket type (e.g. drive click-and-collect). Also accepts a tracking context to indicate the page type and ID from which the action was triggered. Returns updated cart totals and summary.",
+  "name": "cart_patch_items",
+  "description": "Low-level PATCH /api/cart. `counter` is the ABSOLUTE quantity wanted for the line, not an increment. Beware: counter 0 does NOT remove the line, Carrefour adds one unit instead; removal goes through remove_item_from_cart. Used internally by add_item_to_cart and set_cart_item_quantity.",
   "parameters": {
     "type": "object",
     "properties": {
@@ -10,7 +10,7 @@
       },
       "counter": {
         "type": "number",
-        "description": "The desired quantity of the product to set in the cart."
+        "description": "Absolute quantity wanted for this line (1 or more). 0 is not a removal."
       },
       "basketServiceId": {
         "type": "string",
@@ -106,5 +106,6 @@
     "t_002_4051",
     "t_002_5036",
     "t_002_5257"
-  ]
+  ],
+  "internal": true
 }

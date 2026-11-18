@@ -73,8 +73,8 @@ test('buildQuery skips absent optional params', () => {
 
 // --- Whole-request construction on real tool definitions ---------------------
 
-test('add_item_to_cart: PATCH with a nested JSON body', () => {
-  const req = buildRequest(spec('add_item_to_cart'), {
+test('cart_patch_items: PATCH with a nested JSON body', () => {
+  const req = buildRequest(spec('cart_patch_items'), {
     ean: '3560071492007',
     counter: 2,
     basketServiceId: '0678-150-7052',
@@ -100,8 +100,8 @@ test('add_item_to_cart: PATCH with a nested JSON body', () => {
   });
 });
 
-test('add_item_to_cart_by_ean: optional tracking fields vanish when not supplied', () => {
-  const req = buildRequest(spec('add_item_to_cart_by_ean'), {
+test('remove_item_from_cart_raw: optional tracking fields vanish when not supplied', () => {
+  const req = buildRequest(spec('remove_item_from_cart_raw'), {
     ean: '123',
     basketServiceId: 'bs',
     subBasketType: 'drive_clcv',

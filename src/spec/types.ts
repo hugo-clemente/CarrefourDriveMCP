@@ -47,6 +47,11 @@ export interface ToolSpec {
   parameters?: JsonSchemaObject;
   request: RequestSpec;
   requires_auth?: boolean;
+  /**
+   * Not exposed as an MCP tool: a request template that hand-written tools in
+   * `src/tools/` build on (e.g. the raw cart endpoints behind `get_cart`).
+   */
+  internal?: boolean;
   example_traces?: string[];
 }
 

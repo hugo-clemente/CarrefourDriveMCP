@@ -1,0 +1,29 @@
+{
+  "name": "get_order_reorder_items",
+  "internal": true,
+  "description": "Low-level GET /api/user/order/{orderNumber}/reorder: the products of a past order grouped by category, as used by the \"Commander à nouveau\" page (listType, categories, deliveryType, missingItems). Used internally by get_order_details.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "orderNumber": {
+        "type": "string",
+        "description": "Order number, as returned by get_orders."
+      }
+    },
+    "required": [
+      "orderNumber"
+    ]
+  },
+  "request": {
+    "method": "GET",
+    "url": "https://www.carrefour.fr/api/user/order/{orderNumber}/reorder",
+    "headers": {
+      "x-requested-with": "XMLHttpRequest",
+      "accept": "application/json, text/plain, */*"
+    },
+    "query": {},
+    "body": null,
+    "content_type": "application/json"
+  },
+  "requires_auth": true
+}

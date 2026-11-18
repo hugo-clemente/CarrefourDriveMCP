@@ -5,6 +5,7 @@ import { config } from 'dotenv';
 import { registerSpecTools } from './spec/register.js';
 import { loadToolSpecs } from './spec/loader.js';
 import { registerSessionTools } from './tools/session.tools.js';
+import { registerCartTools } from './tools/cart.tools.js';
 import { startKeepAlive } from './services/auth.service.js';
 import { browserService } from './services/browser.service.js';
 import { logger } from './utils/logger.js';
@@ -15,6 +16,7 @@ export function createServer(): { server: McpServer; toolCount: number } {
   const server = new McpServer({ name: 'carrefour-drive', version: '2.0.0' });
 
   registerSessionTools(server);
+  registerCartTools(server);
   const load = loadToolSpecs();
   registerSpecTools(server, load);
 
@@ -29,7 +31,7 @@ export function createServer(): { server: McpServer; toolCount: number } {
     dir: load.dir,
   });
 
-  return { server, toolCount: load.specs.length };
+  return { server, toolCount: load.specs.filter((s) => !s.internal).length };
 }
 
 async function main(): Promise<void> {

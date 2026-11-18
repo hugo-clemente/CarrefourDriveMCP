@@ -6,6 +6,8 @@ import { loadToolSpecs, type LoadResult } from './loader.js';
 import { httpService } from '../services/http.service.js';
 import { sessionService, NO_SESSION_MESSAGE } from '../services/session.service.js';
 import { logger } from '../utils/logger.js';
+import { summarizeProductList } from '../carrefour/summarize.js';
+import { z } from 'zod';
 
 const MAX_RESPONSE_CHARS = parseInt(process.env.CARREFOUR_MAX_RESPONSE_CHARS || '60000', 10);
 
@@ -24,6 +26,18 @@ function render(data: unknown): string {
   if (out.length <= MAX_RESPONSE_CHARS) return out;
   return `${out.slice(0, MAX_RESPONSE_CHARS)}\n\n[truncated: ${out.length} chars total — refine your query or raise CARREFOUR_MAX_RESPONSE_CHARS]`;
 }
+
+/**
+ * Product listings are compacted by default: a raw search page is ~6 KB per
+ * product and gets truncated after a few results. `raw: true` restores the
+ * original payload.
+ */
+export const COMPACT_PRODUCT_LISTS = new Set([
+  'search_products',
+  'get_frequent_purchases',
+  'get_products_by_gtins',
+  'get_products_by_query',
+]);
 
 /** Execute one declarative tool. Exported so the smoke test can drive it directly. */
 export async function executeSpec(spec: ToolSpec, args: Record<string, unknown>): Promise<ToolResult> {
@@ -60,6 +74,10 @@ export async function executeSpec(spec: ToolSpec, args: Record<string, unknown>)
       );
     }
 
+    if (COMPACT_PRODUCT_LISTS.has(spec.name) && args.raw !== true && typeof result.data === 'object' && result.data) {
+      const compact = summarizeProductList(result.data as Record<string, unknown>);
+      if (compact) return text(render(JSON.stringify(compact, null, 1)));
+    }
     return text(render(result.data));
   } catch (error) {
     logger.error('Tool execution failed', { tool: spec.name, error: String(error) });
@@ -69,14 +87,21 @@ export async function executeSpec(spec: ToolSpec, args: Record<string, unknown>)
 
 /**
  * Register every JSON-declared tool on the MCP server.
- * All 43 endpoints are served by this one generic executor.
+ * Every exposed endpoint is served by this one generic executor; `internal`
+ * specs are skipped here and used by the hand-written tools instead.
  */
 export function registerSpecTools(server: McpServer, load: LoadResult = loadToolSpecs()): LoadResult {
   for (const spec of load.specs) {
+    if (spec.internal) continue;
     const shape = schemaToZodShape(spec.parameters);
-    const description = spec.requires_auth
+    let description = spec.requires_auth
       ? `${spec.description} (requires an authenticated Carrefour session)`
       : spec.description;
+    if (COMPACT_PRODUCT_LISTS.has(spec.name)) {
+      shape.raw = z.boolean().optional().describe('Return the raw API payload instead of the compact product list.');
+      description +=
+        ' Answers with a compact list (ean, title, format, price, availability in the store, basketServiceId to pass to add_item_to_cart).';
+    }
 
     server.tool(spec.name, description, shape, async (args: Record<string, unknown>) =>
       executeSpec(spec, args ?? {})
