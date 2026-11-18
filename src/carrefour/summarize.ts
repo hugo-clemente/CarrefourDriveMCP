@@ -274,6 +274,8 @@ export interface ProductSummary {
   basketServiceId?: string;
   promotions?: string[];
   nutriscore?: string;
+  /** Bought before by this account: the best signal for "my usual product". */
+  alreadyPurchased?: boolean;
 }
 
 export function summarizeProduct(p: Json): ProductSummary | null {
@@ -295,6 +297,7 @@ export function summarizeProduct(p: Json): ProductSummary | null {
   const promos = promoLabels(offer);
   if (promos) out.promotions = promos;
   if (attrs.nutriscore?.value) out.nutriscore = attrs.nutriscore.value;
+  if (attrs.isAlreadyPurchased === true) out.alreadyPurchased = true;
   return out;
 }
 
