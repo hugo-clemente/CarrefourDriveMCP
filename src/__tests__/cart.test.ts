@@ -148,6 +148,8 @@ test('summarizeProductList compacts a search page and keeps availability', () =>
     nutriscore: 'D',
   });
   assert.equal(out.paging.totalCount, 1);
+  const bought = summarizeProductList({ data: [{ ...feta, attributes: { ...feta.attributes, isAlreadyPurchased: true } }] })!;
+  assert.equal(bought.products[0].alreadyPurchased, true);
   assert.equal(summarizeProductList({ foo: 1 }), null);
 });
 

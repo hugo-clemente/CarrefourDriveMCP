@@ -100,7 +100,7 @@ export function registerSpecTools(server: McpServer, load: LoadResult = loadTool
     if (COMPACT_PRODUCT_LISTS.has(spec.name)) {
       shape.raw = z.boolean().optional().describe('Return the raw API payload instead of the compact product list.');
       description +=
-        ' Answers with a compact list (ean, title, format, price, availability in the store, basketServiceId to pass to add_item_to_cart).';
+        ' Answers with a compact list (ean, title, format, price, availability in the store, alreadyPurchased when bought before, basketServiceId to pass to add_item_to_cart).';
     }
 
     server.tool(spec.name, description, shape, async (args: Record<string, unknown>) =>
