@@ -1,12 +1,12 @@
 {
-  "name": "add_item_to_cart_by_ean",
-  "description": "Adds a product to the authenticated user's cart on Carrefour France using the product EAN, a basket service ID, and a sub-basket type (e.g. drive click-and-collect). Also accepts a tracking context to indicate the page type and page ID from which the action was triggered. Returns updated cart totals and summary.",
+  "name": "remove_item_from_cart_raw",
+  "description": "Low-level PATCH /api/cart/items: REMOVES the whole line for this EAN from the cart (this is what the carrefour.fr \"Supprimer\" link calls). It was previously exposed as add_item_to_cart_by_ean, which was wrong: it never adds anything. Used internally by remove_item_from_cart.",
   "parameters": {
     "type": "object",
     "properties": {
       "ean": {
         "type": "string",
-        "description": "The EAN (barcode) of the product to add to the cart."
+        "description": "EAN of the product whose line is removed."
       },
       "basketServiceId": {
         "type": "string",
@@ -64,5 +64,6 @@
   "example_traces": [
     "t_002_1815",
     "t_002_3372"
-  ]
+  ],
+  "internal": true
 }

@@ -1,6 +1,6 @@
 {
-  "name": "get_cart",
-  "description": "Retrieves the current shopping cart contents and summary for the authenticated user on Carrefour France. Returns cart totals (amounts, discounts, loyalty points, delivery fees), marketplace sub-baskets, additional orders, preorders, and relevant API endpoints. Optionally forces a refresh of cart data.",
+  "name": "cart_fetch",
+  "description": "Low-level GET /api/cart returning the raw cart JSON (very large: ~6 KB per product). Used internally by get_cart, which returns a compact summary.",
   "parameters": {
     "type": "object",
     "properties": {
@@ -72,5 +72,6 @@
     "t_003_0856",
     "t_003_0935",
     "t_003_1076"
-  ]
+  ],
+  "internal": true
 }

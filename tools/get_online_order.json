@@ -1,0 +1,29 @@
+{
+  "name": "get_online_order",
+  "internal": true,
+  "description": "Low-level GET /api/user/orders/{orderNumber}: raw detail of one online (Drive) order. Used internally by get_order_details.",
+  "parameters": {
+    "type": "object",
+    "properties": {
+      "orderNumber": {
+        "type": "string",
+        "description": "Order number, as returned by get_orders."
+      }
+    },
+    "required": [
+      "orderNumber"
+    ]
+  },
+  "request": {
+    "method": "GET",
+    "url": "https://www.carrefour.fr/api/user/orders/{orderNumber}",
+    "headers": {
+      "x-requested-with": "XMLHttpRequest",
+      "accept": "application/json, text/plain, */*"
+    },
+    "query": {},
+    "body": null,
+    "content_type": "application/json"
+  },
+  "requires_auth": true
+}

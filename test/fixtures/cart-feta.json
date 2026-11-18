@@ -1,0 +1,81 @@
+{
+  "cart": {
+    "totalAmount": 4.9,
+    "totalPrice": 4.9,
+    "totalProductsPrice": 4.9,
+    "totalSavings": 0,
+    "totalFees": 0,
+    "type": "drive_clcv",
+    "cartID": "fixture",
+    "items": [
+      {
+        "category": "Produits du monde",
+        "products": [
+          {
+            "counter": 2,
+            "totalItemPrice": 4.9,
+            "totalItemPriceWithoutPromo": 4.9,
+            "isStockOff": false,
+            "isFree": false,
+            "available": true,
+            "product": {
+              "type": "product",
+              "id": "product-3560070149278",
+              "attributes": {
+                "ean": "3560070149278",
+                "title": "Fromage feta CARREFOUR EXTRA",
+                "shortTitle": "Fromage feta CARREFOUR EXTRA",
+                "brand": "CARREFOUR EXTRA",
+                "businessType": "food",
+                "offerServiceId": "0261-150-6",
+                "uri": "cremerie/fromage-cuisiner/fromages-mediterraneens/feta",
+                "offers": {
+                  "3560070149278": {
+                    "0261-150-6": {
+                      "type": "offer",
+                      "id": "0261-150-6",
+                      "attributes": {
+                        "availability": {
+                          "indispensable": false,
+                          "purchasable": true,
+                          "stopped": false,
+                          "suspended": false,
+                          "suspensionReason": null,
+                          "hasLowQuantity": false
+                        },
+                        "price": { "price": 2.45, "unitOfMeasure": "KG", "perUnit": 12.25, "perUnitLabel": "12.25 € / KG" },
+                        "ordering": { "min": 1, "step": 1, "max": 50 },
+                        "offerServiceId": "0261-150-6",
+                        "ean": "3560070149278",
+                        "promotions": [{ "type": "rd_offre_pass", "label": "-15% Mardi PASS" }]
+                      }
+                    }
+                  }
+                },
+                "packaging": "la barquette de 200g",
+                "format": "200g",
+                "nutriscore": { "value": "D" }
+              }
+            },
+            "subItems": []
+          }
+        ],
+        "discounts": []
+      }
+    ],
+    "currency": "€",
+    "isSlotAvailable": true,
+    "isSlotBooked": false,
+    "storeRef": "6",
+    "nbUnavailable": 0,
+    "nbProducts": 1,
+    "totalAvailableQuantity": 2,
+    "facilityServiceId": "0261-150-6",
+    "pickupMode": "PICKING_DRIVE"
+  },
+  "marketplace": { "subBaskets": [], "amounts": { "totalAmount": 0, "totalPrice": 0, "totalSavings": 0 } },
+  "additionalOrders": [],
+  "nonFoodDeliveryCart": [],
+  "preorder": [],
+  "meta": { "errors": [], "hasPartnerStoreConflict": false }
+}
