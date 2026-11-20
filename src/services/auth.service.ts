@@ -1,5 +1,5 @@
 import { CARREFOUR_ORIGIN, IAM_ORIGIN, SessionService, sessionService } from './session.service.js';
-import { browserService } from './browser.service.js';
+import { browserService, isProfileLocked } from './browser.service.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -33,7 +33,22 @@ export function authorizeUrl(): string {
   return `${IAM_ORIGIN}/iam/oauth2/CarrefourConnect/authorize?${params.toString()}`;
 }
 
-export type RefreshFailure = 'no-sso' | 'sso-expired' | 'network';
+/** A cheap authenticated call, used to tell whether the storefront session is alive. */
+export const PROBE_URL = `${CARREFOUR_ORIGIN}/api/user/secured/loyalty/balance`;
+
+export type RefreshFailure = 'no-sso' | 'sso-expired' | 'browser-busy' | 'network';
+
+/**
+ * The SSO token ForgeRock last refused. Replaying the OAuth chain with it again
+ * cannot work, so we wait for a new login (a new token) before trying again.
+ * Observed on 2026-11-20: with a dead token the old keep-alive failed every
+ * 30 min for days, while the storefront session itself never expired.
+ */
+let deadSsoToken: string | null = null;
+
+export function resetDeadSso(): void {
+  deadSsoToken = null;
+}
 
 export interface RefreshResult {
   ok: boolean;
@@ -65,17 +80,36 @@ async function doRefresh(session: SessionService): Promise<RefreshResult> {
     };
   }
 
+  const token = session.getSsoToken();
+  if (token !== null && token === deadSsoToken) {
+    return {
+      ok: false,
+      reason: 'sso-expired',
+      message:
+        'The IAM SSO session already expired and nobody signed in since, so the storefront session ' +
+        'cannot be rebuilt. Sign in again with carrefour_browser_login (captcha + email OTP).',
+    };
+  }
+
   let landing: { status: number | null; finalUrl: string };
   try {
     // Chromium walks the redirect chain and stores the cookies itself.
     landing = await browserService.navigate(authorizeUrl());
   } catch (error) {
     logger.error('Session refresh failed', { error: String(error) });
+    if (isProfileLocked(error)) {
+      return {
+        ok: false,
+        reason: 'browser-busy',
+        message: 'The browser profile is held by another copy of the server; the session itself may be fine.',
+      };
+    }
     return { ok: false, reason: 'network', message: `Session refresh failed: ${(error as Error).message}` };
   }
 
   if (!landedOnStorefront(landing.finalUrl)) {
     logger.error('Session refresh stopped short of the storefront', { finalUrl: landing.finalUrl });
+    deadSsoToken = token;
     return {
       ok: false,
       reason: 'sso-expired',
@@ -153,10 +187,35 @@ export async function ssoStatus(session: SessionService = sessionService): Promi
 
 let keepAliveTimer: NodeJS.Timeout | null = null;
 
+export type KeepAliveOutcome = 'alive' | 'refreshed' | 'expired' | 'skipped' | 'error';
+
+/** Probe the storefront session and only rebuild it from the SSO when it is gone. */
+export async function keepAliveTick(session: SessionService = sessionService): Promise<KeepAliveOutcome> {
+  if (!session.hasSession() && !session.hasSso()) return 'skipped';
+  try {
+    const probe = await browserService.fetch({
+      method: 'GET',
+      url: PROBE_URL,
+      headers: { accept: 'application/json, text/plain, */*', 'x-requested-with': 'XMLHttpRequest' },
+    });
+    if (probe.status !== 401 && probe.status !== 403) {
+      await browserService.syncCookies();
+      return 'alive';
+    }
+  } catch (error) {
+    logger.error('Keep-alive probe failed', { error: String(error) });
+    return 'error';
+  }
+  if (!session.hasSso()) return 'expired';
+  const result = await refreshSession(session);
+  return result.ok ? 'refreshed' : result.reason === 'sso-expired' || result.reason === 'no-sso' ? 'expired' : 'error';
+}
+
 /**
- * The SSO session dies after 60 min of inactivity, which a long-lived MCP
- * server would otherwise hit constantly. Replaying the OAuth chain on a timer
- * touches the SSO session *and* keeps the storefront cookies fresh.
+ * Keep the storefront session in use. Measured on 2026-11-20: the www.carrefour.fr
+ * session stayed valid for 5 days of regular use, long after the IAM SSO session
+ * (60 min idle, 24 h max) had died. So the timer touches the storefront, and only
+ * falls back to the OAuth chain when the storefront actually says 401.
  *
  * Set CARREFOUR_KEEPALIVE_MINUTES=0 to opt out.
  */
@@ -164,10 +223,14 @@ export function startKeepAlive(session: SessionService = sessionService): void {
   const minutes = parseInt(process.env.CARREFOUR_KEEPALIVE_MINUTES || '30', 10);
   if (!Number.isFinite(minutes) || minutes <= 0 || keepAliveTimer) return;
 
+  let last: KeepAliveOutcome | null = null;
   keepAliveTimer = setInterval(() => {
-    if (!session.hasSso()) return;
-    refreshSession(session)
-      .then((result) => logger.info('Keep-alive', { ok: result.ok, reason: result.reason }))
+    keepAliveTick(session)
+      .then((outcome) => {
+        // Log changes, not every tick: a dead session used to fill error.log.
+        if (outcome !== last) logger.info('Keep-alive', { outcome });
+        last = outcome;
+      })
       .catch((error) => logger.error('Keep-alive failed', { error: String(error) }));
   }, minutes * 60_000);
 

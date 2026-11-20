@@ -6,6 +6,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { sessionService, SSO_COOKIE_NAME, CARREFOUR_ORIGIN } from './session.service.js';
 import { browserService } from './browser.service.js';
+import { resetDeadSso } from './auth.service.js';
 import { logger } from '../utils/logger.js';
 
 const require = createRequire(import.meta.url);
@@ -165,10 +166,11 @@ export async function browserLogin(opts: BrowserLoginOptions = {}): Promise<stri
   }
 
   // Hand the fresh cookies to the server's browser, and prove they work.
+  resetDeadSso();
   await browserService.close();
   await browserService.syncCookies();
   return (
-    'Signed in. The IAM SSO cookie is stored, so the session renews itself for up to 24 h and ' +
-    'survives a server restart.'
+    'Signed in. The session is kept in use every 30 min and survives a server restart; the IAM SSO ' +
+    'cookie can rebuild it for up to 24 h if Carrefour drops it.'
   );
 }

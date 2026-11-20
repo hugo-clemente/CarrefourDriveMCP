@@ -153,10 +153,17 @@ an OTP. So the login is interactive, once:
 3. **Don't close the window** — the server detects the end of the OAuth loop,
    grabs the session cookies from memory and closes it for you.
 
-From then on the session renews itself silently: the server replays the SSO
-authorize → callback redirect before authenticated calls, after a `401`/`403`,
-and every 30 minutes as a keep-alive. You only log in again when the SSO cookie
-itself expires (24 h max, or 60 min idle) — the tools say so explicitly.
+From then on the server keeps the store session in use: every 30 minutes it
+makes one cheap authenticated call on www.carrefour.fr. Measured in November
+2026, that session stayed valid for days, long after the SSO cookie had died.
+Only when the store answers `401`/`403` does the server replay the SSO
+authorize → callback redirect; a token ForgeRock already refused is not tried
+again until you log in. You log in again only when both are gone — the tools say
+so explicitly.
+
+If two copies of the server run at once (the Claude desktop app can start more
+than one), the second one runs on a private browser profile seeded from the
+saved cookies instead of failing on the locked shared profile.
 
 Check the state at any time with `carrefour_session_status` (`verify: true` makes
 a real call).
@@ -310,7 +317,7 @@ Two distinct cookie systems:
 | Domain | Role | Lifetime |
 | --- | --- | --- |
 | `moncompte.carrefour.fr` | ForgeRock SSO, cookie **`c4iamsecuretk`** | 24 h max, dies after **60 min idle** |
-| `www.carrefour.fr` | store session (`HttpOnly` cookies) | short, renewable |
+| `www.carrefour.fr` | store session (`HttpOnly` cookies) | days while in use (observed 5+), renewable from the SSO |
 
 Login is interactive because of two constraints: the form is behind a
 **Cloudflare Turnstile** captcha that refuses to validate in a CDP-driven
@@ -381,7 +388,7 @@ See `.env.example`. Main variables:
 | `CARREFOUR_DATA_DIR` | `~/.carrefour-drive-mcp` (repo `data/` from source) | root of everything written below |
 | `CARREFOUR_SESSION_FILE` | `<data>/sessions/cookies.json` | persisted cookie jar |
 | `CARREFOUR_BROWSER_PROFILE` | `<data>/browser-profile` | persistent Chromium profile |
-| `CARREFOUR_KEEPALIVE_MINUTES` | `30` | SSO keep-alive period; `0` disables |
+| `CARREFOUR_KEEPALIVE_MINUTES` | `30` | Store-session keep-alive period; `0` disables |
 | `CARREFOUR_OAUTH_CLIENT_ID` | `carrefour_onecarrefour_web` | OAuth2 client used for refresh |
 | `CARREFOUR_OAUTH_REDIRECT_URI` | `https://www.carrefour.fr/login/check` | BFF callback |
 | `CARREFOUR_OAUTH_SCOPE` | `openid iam` | requested scopes |
