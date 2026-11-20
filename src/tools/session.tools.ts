@@ -8,7 +8,7 @@ import {
   SSO_COOKIE_NAME,
 } from '../services/session.service.js';
 import { httpService } from '../services/http.service.js';
-import { refreshSession, ssoStatus } from '../services/auth.service.js';
+import { PROBE_URL, refreshSession, ssoStatus } from '../services/auth.service.js';
 import { browserLogin, isPlaywrightAvailable } from '../services/browser-login.js';
 import { browserService } from '../services/browser.service.js';
 
@@ -23,7 +23,6 @@ function text(body: string, isError = false) {
 }
 
 /** Endpoint used as a cheap "am I logged in?" probe. */
-const PROBE_URL = `${CARREFOUR_ORIGIN}/api/user/secured/loyalty/balance`;
 
 export function registerSessionTools(server: McpServer): void {
   server.tool(

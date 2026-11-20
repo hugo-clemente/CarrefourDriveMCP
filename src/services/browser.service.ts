@@ -1,4 +1,4 @@
-import { mkdirSync } from 'fs';
+import { mkdirSync, rmSync } from 'fs';
 import { resolve } from 'path';
 import type { BrowserContext, Page } from 'playwright';
 import { sessionService } from './session.service.js';
@@ -53,6 +53,20 @@ export function profileDir(): string {
     : dataPath('browser-profile');
 }
 
+/**
+ * Chromium refuses to open a profile another process already holds
+ * ("Failed to create a ProcessSingleton"). It happens as soon as two copies of
+ * the server run at once, which the Claude desktop app does.
+ */
+export function isProfileLocked(error: unknown): boolean {
+  return /ProcessSingleton|SingletonLock|profile (directory )?is already in use/i.test(String(error));
+}
+
+/** A throw-away profile for this process, used when the shared one is taken. */
+export function instanceProfileDir(pid = process.pid): string {
+  return dataPath('browser-profile-instances', String(pid));
+}
+
 export interface FetchRequest {
   method: string;
   url: string;
@@ -77,28 +91,44 @@ class BrowserService {
   private starting: Promise<BrowserContext> | null = null;
   /** One parked page per origin: an in-page fetch is subject to CORS. */
   private pages = new Map<string, Page>();
+  /** Set when the shared profile was taken and this process runs on its own copy. */
+  private fallbackDir: string | null = null;
 
   isRunning(): boolean {
     return this.context !== null;
   }
 
   private async launch(headless: boolean): Promise<BrowserContext> {
-    const dir = profileDir();
-    mkdirSync(dir, { recursive: true });
-
     // Imported at call time so the module graph stays loadable without playwright.
     const { chromium } = await import('playwright');
 
-    const context = await chromium.launchPersistentContext(dir, {
-      headless,
-      // The full browser, not the headless shell: the shell is fingerprinted.
-      channel: 'chromium',
-      userAgent: USER_AGENT,
-      args: ['--disable-blink-features=AutomationControlled'],
-      locale: 'fr-FR',
-      timezoneId: 'Europe/Paris',
-      viewport: { width: 1366, height: 900 },
-    });
+    const open = (dir: string) => {
+      mkdirSync(dir, { recursive: true });
+      return chromium.launchPersistentContext(dir, {
+        headless,
+        // The full browser, not the headless shell: the shell is fingerprinted.
+        channel: 'chromium',
+        userAgent: USER_AGENT,
+        args: ['--disable-blink-features=AutomationControlled'],
+        locale: 'fr-FR',
+        timezoneId: 'Europe/Paris',
+        viewport: { width: 1366, height: 900 },
+      });
+    };
+
+    let dir = this.fallbackDir ?? profileDir();
+    let context: BrowserContext;
+    try {
+      context = await open(dir);
+    } catch (error) {
+      if (!isProfileLocked(error) || this.fallbackDir) throw error;
+      // Another copy of the server holds the shared profile. Run on a private
+      // one: the cookie jar on disk carries the session, so nothing is lost.
+      dir = instanceProfileDir();
+      this.fallbackDir = dir;
+      logger.info('Shared browser profile in use by another server, using a private one', { profile: dir });
+      context = await open(dir);
+    }
     context.setDefaultNavigationTimeout(NAV_TIMEOUT_MS);
 
     // Seed the profile with anything the user imported by hand or via the env.
@@ -248,8 +278,17 @@ class BrowserService {
     if (context) await context.close().catch(() => undefined);
   }
 
+  /** Close the browser and delete this process's private profile, if any. */
+  async shutdown(): Promise<void> {
+    await this.close();
+    if (this.fallbackDir) {
+      rmSync(this.fallbackDir, { recursive: true, force: true });
+      this.fallbackDir = null;
+    }
+  }
+
   describe(): { running: boolean; headed: boolean; profile: string } {
-    return { running: this.context !== null, headed: this.headed, profile: profileDir() };
+    return { running: this.context !== null, headed: this.headed, profile: this.fallbackDir ?? profileDir() };
   }
 }
 

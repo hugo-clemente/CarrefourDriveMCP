@@ -67,3 +67,47 @@ test('the jar exports cookies in the shape Playwright expects, across both hosts
     assert.equal(typeof cookie.expires, 'number');
   }
 });
+
+// --- keep-alive and profile lock ---------------------------------------------
+
+import { browserService, isProfileLocked } from '../services/browser.service.js';
+import { keepAliveTick, resetDeadSso } from '../services/auth.service.js';
+
+test('a locked Chromium profile is recognised, other errors are not', () => {
+  assert.equal(isProfileLocked(new Error('browserType.launchPersistentContext: Failed to create a ProcessSingleton for your profile directory.')), true);
+  assert.equal(isProfileLocked(new Error('net::ERR_NAME_NOT_RESOLVED')), false);
+});
+
+function sessionWith(cookies: string, file: string) {
+  process.env.CARREFOUR_SESSION_FILE = join(dir, file);
+  const session = new SessionService();
+  session.importCookies(cookies);
+  return session;
+}
+
+test('keep-alive only probes the storefront while it answers', async () => {
+  const session = sessionWith('[{"name":"FRO_SESSID","value":"s","domain":"www.carrefour.fr","path":"/"},{"name":"c4iamsecuretk","value":"t","domain":"moncompte.carrefour.fr","path":"/"}]', 'ka1.json');
+  const calls: string[] = [];
+  (browserService as any).fetch = async (r: { url: string }) => (calls.push(`fetch ${r.url}`), { status: 200, ok: true, text: '{}', url: r.url, statusText: 'OK', contentType: 'application/json' });
+  (browserService as any).syncCookies = async () => undefined;
+  (browserService as any).navigate = async (u: string) => (calls.push(`navigate ${u}`), { status: 200, finalUrl: 'https://www.carrefour.fr/' });
+
+  assert.equal(await keepAliveTick(session), 'alive');
+  assert.ok(calls.every((c) => c.startsWith('fetch https://www.carrefour.fr/')), 'no OAuth replay while the storefront is alive');
+});
+
+test('a refused SSO token is not replayed again until a new login', async () => {
+  resetDeadSso();
+  const session = sessionWith('[{"name":"FRO_SESSID","value":"s","domain":"www.carrefour.fr","path":"/"},{"name":"c4iamsecuretk","value":"dead","domain":"moncompte.carrefour.fr","path":"/"}]', 'ka2.json');
+  let navigations = 0;
+  (browserService as any).fetch = async (r: { url: string }) => ({ status: 401, ok: false, text: '', url: r.url, statusText: 'Unauthorized', contentType: null });
+  (browserService as any).navigate = async () => (navigations++, { status: 200, finalUrl: 'https://moncompte.carrefour.fr/iam/XUI/' });
+
+  assert.equal(await keepAliveTick(session), 'expired');
+  assert.equal(await keepAliveTick(session), 'expired');
+  assert.equal(navigations, 1, 'the dead token is tried once, not every tick');
+
+  resetDeadSso();
+  assert.equal(await keepAliveTick(session), 'expired');
+  assert.equal(navigations, 2);
+});
